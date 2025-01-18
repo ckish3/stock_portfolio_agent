@@ -78,6 +78,28 @@ class StockData:
 
         return results
 
+    def download_recommendations(self) -> pd.DataFrame:
+        """
+        Retrieves the recommendations counts from the yfinance API. The format
+        of the returned data has the following columns:
+        | symbol | Date | strongBuy | buy | hold | sell | strongSell |
+
+        Args:
+            None
+        Returns:
+            pd.DataFrame: A pandas DataFrame containing the stock recommendation data
+        """
+        final_df = pd.DataFrame()
+        for symbol in self._symbols:
+            logger.info(f'Getting recommendation counts for {symbol}')
+            data_df = yfinance.Ticker(symbol).get_recommendations()
+            data_df['symbol'] = symbol
+            data_df = data_df[data_df['period'] == '0m']
+            final_df = pd.concat([final_df, data_df], axis=0)
+
+        final_df = final_df.drop(columns=['period'])
+        final_df['date'] = datetime.date.today().isoformat()
+        return final_df
 
     def get_list_of_symbols(self) -> List[str]:
         """
@@ -88,7 +110,7 @@ class StockData:
 
         """
         logger.info('Getting list of stock symbols')
-        
+
         url = 'https://www.alphavantage.co/query'
         api_key = os.getenv('ALPHAVANTAGE_API_KEY')
 
