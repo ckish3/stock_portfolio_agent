@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class StockData:
     def __init__(self):
+        self._symbols = self.get_list_of_symbols()
         #self.data = self.download_stock_price_data()
         pass
 
@@ -57,7 +58,7 @@ class StockData:
 
         logger.info('Downloading stock price data')
      
-        all_symbols = self.get_list_of_symbols()
+        all_symbols = self._symbols
 
         if number_of_symbols is not None:
             all_symbols = random.sample(all_symbols, number_of_symbols)
@@ -86,6 +87,8 @@ class StockData:
             List[str]: The list of stock symbols
 
         """
+        logger.info('Getting list of stock symbols')
+        
         url = 'https://www.alphavantage.co/query'
         api_key = os.getenv('ALPHAVANTAGE_API_KEY')
 
@@ -103,8 +106,7 @@ class StockData:
             cr = csv.reader(decoded_content.splitlines(), delimiter=',')
             my_list = list(cr)
             for row in my_list:
-                if row[exchange_index] in ['NYSE', 'NASDAQ']:
-                    all_symbols.append(row[symbol_index])
+                all_symbols.append(row[symbol_index])
 
         return all_symbols[1:]
 
