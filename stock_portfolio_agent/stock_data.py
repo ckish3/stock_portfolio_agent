@@ -95,17 +95,22 @@ class StockData:
         final_list = []
         for symbol in self._symbols:
             logger.info(f'Getting recommendation counts for {symbol}')
-            data_df = yfinance.Ticker(symbol).get_recommendations()
-            data_df = data_df.iloc[0]
+            try:
+                data_df = yfinance.Ticker(symbol).get_recommendations()
+                data_df = data_df.iloc[0]
+            except Exception as e:
+                logger.error(f'Error getting recommendation counts for {symbol}: {e}')
+                continue
+
             rec = recommendation.Recommendation(
                 id = symbol + '_' + today.isoformat(),
                 symbol = symbol,
                 date = today,
-                strong_buy = data_df['strongBuy'],
-                buy = data_df['buy'],
-                hold = data_df['hold'],
-                sell = data_df['sell'],
-                strong_sell = data_df['strongSell']
+                strong_buy = int(data_df['strongBuy']),
+                buy = int(data_df['buy']),
+                hold = int(data_df['hold']),
+                sell = int(data_df['sell']),
+                strong_sell = int(data_df['strongSell'])
             )
             final_list.append(rec)
         return final_list
@@ -139,7 +144,9 @@ class StockData:
             for row in my_list:
                 all_symbols.append(row[symbol_index])
 
-        return all_symbols[1:]
+        symbols = all_symbols[1:]
+        logger.info(f'Retrieved {len(symbols)} symbols')
+        return symbols
 
     def get_stock_price_data(self) -> dict:
         return self.data

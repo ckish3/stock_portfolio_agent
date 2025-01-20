@@ -16,3 +16,8 @@ class Recommendation(Base):
     hold: Mapped[int]
     sell: Mapped[int]
     strong_sell: Mapped[int]
+
+    def __repr__(self) -> str:
+        return f"Recommendation(id={self.id}, symbol={self.symbol}, date={self.date}, strong_buy={self.strong_buy}, buy={self.buy}, hold={self.hold}, sell={self.sell}, strong_sell={self.strong_sell})"    
+    
+    
