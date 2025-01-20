@@ -14,6 +14,7 @@ import json
 import pandas as pd
 import logging
 import yfinance
+import time
 
 import recommendation
 
@@ -95,24 +96,28 @@ class StockData:
         final_list = []
         for symbol in self._symbols:
             logger.info(f'Getting recommendation counts for {symbol}')
-            try:
-                data_df = yfinance.Ticker(symbol).get_recommendations()
-                data_df = data_df.iloc[0]
-            except Exception as e:
-                logger.error(f'Error getting recommendation counts for {symbol}: {e}')
-                continue
-
-            rec = recommendation.Recommendation(
-                id = symbol + '_' + today.isoformat(),
-                symbol = symbol,
-                date = today,
-                strong_buy = int(data_df['strongBuy']),
-                buy = int(data_df['buy']),
-                hold = int(data_df['hold']),
-                sell = int(data_df['sell']),
-                strong_sell = int(data_df['strongSell'])
-            )
-            final_list.append(rec)
+            iteration = 0
+            while iteration < 3:
+                try:
+                    data_df = yfinance.Ticker(symbol).get_recommendations()
+                    data_df = data_df.iloc[0]
+                    break
+                except Exception as e:
+                    logger.error(f'Error getting recommendation counts for {symbol}: {e}')
+                    iteration += 1
+                    time.sleep(1)
+            if 'strongBuy' in data_df:
+                rec = recommendation.Recommendation(
+                    id = symbol + '_' + today.isoformat(),
+                    symbol = symbol,
+                    date = today,
+                    strong_buy = int(data_df['strongBuy']),
+                    buy = int(data_df['buy']),
+                    hold = int(data_df['hold']),
+                    sell = int(data_df['sell']),
+                    strong_sell = int(data_df['strongSell'])
+                )
+                final_list.append(rec)
         return final_list
 
     def get_list_of_symbols(self) -> List[str]:

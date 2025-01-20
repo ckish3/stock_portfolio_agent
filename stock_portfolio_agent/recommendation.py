@@ -7,6 +7,8 @@ from sqlalchemy.orm import mapped_column
 
 class Recommendation(Base):
     __tablename__ = "recommendation"
+    __table_args__ = {"schema": "raw_data"}
+
 
     id: Mapped[str] = mapped_column(primary_key=True)
     symbol: Mapped[str] = mapped_column(String(10))
