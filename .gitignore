@@ -171,3 +171,4 @@ cython_debug/
 .pypirc
 
 stock_portfolio_agent/stock_data.csv
+.qodo

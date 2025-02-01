@@ -1,13 +1,14 @@
 
 import datetime
 from database_base import Base
+import database_actions
 from sqlalchemy import String, Date
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
 class Recommendation(Base):
     __tablename__ = "recommendation"
-    __table_args__ = {"schema": "raw_data"}
+    __table_args__ = {"schema": database_actions.DatabaseActions.raw_schema_name}
 
 
     id: Mapped[str] = mapped_column(primary_key=True)
