@@ -1,6 +1,7 @@
 
 import os
 import logging
+import sqlalchemy
 from sqlalchemy.orm import Session
 import database_actions
 import database_base
@@ -22,11 +23,18 @@ def main():
     connection_string = os.getenv('DATABASE_URL')
     db = database_actions.DatabaseActions(connection_string)
     engine = db.get_engine()
+
+        
     database_base.Base.metadata.create_all(bind=engine)
     with Session(engine) as session:
-        recs = stock_data.StockData().download_recommendations()
-        logger.info('Adding recommendations to database')
-        session.add_all(recs)
+        #recs = stock_data.StockData().download_recommendations()
+        #logger.info('Adding recommendations to database')
+        #session.add_all(recs)
+        #session.commit()
+
+        targets = stock_data.StockData().download_price_targets()
+        logger.info('Adding price targets to database')
+        session.add_all(targets)
         session.commit()
 
 #    stock_data.StockData()

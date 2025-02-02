@@ -4,7 +4,8 @@
 This module contains a class for downloading & savingstock price data from the AlphaVantage API.
 """
 
-from typing import List
+import concurrent.futures
+from typing import List, Tuple
 import datetime
 import random
 import os
@@ -17,6 +18,7 @@ import yfinance
 import time
 
 import recommendation
+import price_target
 
 
 logging.basicConfig(
@@ -94,31 +96,114 @@ class StockData:
         """
         today = datetime.date.today()
         final_list = []
+
         for symbol in self._symbols:
-            logger.info(f'Getting recommendation counts for {symbol}')
-            iteration = 0
-            while iteration < 3:
-                try:
-                    data_df = yfinance.Ticker(symbol).get_recommendations()
-                    data_df = data_df.iloc[0]
-                    break
-                except Exception as e:
-                    logger.error(f'Error getting recommendation counts for {symbol}: {e}')
-                    iteration += 1
-                    time.sleep(1)
-            if 'strongBuy' in data_df:
-                rec = recommendation.Recommendation(
-                    id = symbol + '_' + today.isoformat(),
-                    symbol = symbol,
-                    date = today,
-                    strong_buy = int(data_df['strongBuy']),
-                    buy = int(data_df['buy']),
-                    hold = int(data_df['hold']),
-                    sell = int(data_df['sell']),
-                    strong_sell = int(data_df['strongSell'])
-                )
+            worked, rec = self.download_recommedation_of_one_symbol(symbol, today)
+            if worked:
                 final_list.append(rec)
         return final_list
+
+    def download_recommedation_of_one_symbol(self, symbol: str, today: datetime.date) -> Tuple[bool, recommendation.Recommendation]:
+        
+        iteration = 0
+        rec = None
+        worked = False
+        data_df = None
+        while iteration < 3:
+            logger.info(f'Getting recommendation counts for {symbol}')
+            try:
+                data_df = yfinance.Ticker(symbol).get_recommendations()
+                break
+            except Exception as e:
+                logger.error(f'Error getting recommendation counts for {symbol}: {e}')
+                iteration += 1
+                time.sleep(1)
+        if data_df is None:
+            logger.warning(f'!!!WARNING: {symbol} recommendations never retrieved')
+        if 'strongBuy' in data_df and len(data_df) > 0:
+            data_df = data_df.iloc[0]
+            rec = recommendation.Recommendation(
+                id = symbol + '_' + today.isoformat(),
+                symbol = symbol,
+                date = today,
+                strong_buy = int(data_df['strongBuy']),
+                buy = int(data_df['buy']),
+                hold = int(data_df['hold']),
+                sell = int(data_df['sell']),
+                strong_sell = int(data_df['strongSell'])
+            )
+            worked = True
+
+        return worked, rec
+
+    def download_price_targets(self) -> List[price_target.PriceTarget]:
+        """
+        Retrieves the price targets from the yfinance API.
+
+        Args:
+            None
+        Returns:
+            List[price_target.PriceTarget]: A list of Recommendation objects containing the analyst price targets data
+        """
+        today = datetime.date.today()
+        final_list = []
+
+        for symbol in self._symbols:
+            worked, target = self.download_price_target_of_one_symbol(symbol, today)
+            if worked:
+                final_list.append(target)
+        return final_list
+    def download_price_target_of_one_symbol(self, symbol: str, today: datetime.date) -> Tuple[
+        bool, price_target.PriceTarget]:
+
+        """
+        Retrieves the price target for a given stock symbol from the yfinance API.
+
+        Args:
+            symbol (str): The stock symbol for which to retrieve the price target.
+            today (datetime.date): The current date.
+
+        Returns:
+            Tuple[bool, price_target.PriceTarget]: A tuple containing a boolean indicating success and a PriceTarget object with the price target data.
+
+        The function attempts to get the price target for the specified symbol up to three times. If successful, it returns a PriceTarget object with
+        the current, low, high, mean, and median price targets. Otherwise, it logs warnings if the data could not be retrieved.
+        """
+        iteration = 0
+        target = None
+        worked = False
+        data_dict = None
+        while iteration < 3:
+            logger.info(f'Getting price target for {symbol}')
+            try:
+                data_dict = yfinance.Ticker(symbol).get_analyst_price_targets()
+                break
+            except Exception as e:
+                logger.error(f'Error getting price target for {symbol}: {e}')
+                iteration += 1
+                time.sleep(1)
+        if data_dict is None:
+            logger.warning(f'!!!WARNING: {symbol} price target never retrieved')
+        elif 'current' in data_dict and \
+                'low' in data_dict and \
+                'high' in data_dict and \
+                'mean' in data_dict and \
+                'median' in data_dict:
+            target = price_target.PriceTarget(
+                                              id=symbol + '_' + today.isoformat(),
+                                              symbol=symbol,
+                                              date=today,
+                                              current=float(data_dict['current']) if data_dict['current'] is not None else None,
+                                              low=float(data_dict['low']) if data_dict['low'] is not None else None,
+                                              high=float(data_dict['high']) if data_dict['high'] is not None else None,
+                                              mean=float(data_dict['mean']) if data_dict['mean'] is not None else None,
+                                              median=float(data_dict['median']) if data_dict['median'] is not None else None
+            )
+            worked = True
+        else:
+            logger.warning(f'!!!WARNING: {symbol} price target incomplete')
+
+        return worked, target
 
     def get_list_of_symbols(self) -> List[str]:
         """
