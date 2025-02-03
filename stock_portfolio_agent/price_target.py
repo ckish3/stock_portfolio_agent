@@ -20,5 +20,5 @@ class PriceTarget(Base):
     median: Mapped[float] = mapped_column(Float, nullable=True)
 
     def __repr__(self) -> str:
-        return f"Recommendation(id={self.id}, symbol={self.symbol}, date={self.date}, strong_buy={self.strong_buy}, buy={self.buy}, hold={self.hold}, sell={self.sell}, strong_sell={self.strong_sell})"
+        return f"Recommendation(id={self.id}, symbol={self.symbol}, date={self.date}, current={self.current}, mean={self.mean})"
 

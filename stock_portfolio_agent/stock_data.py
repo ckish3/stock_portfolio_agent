@@ -19,6 +19,8 @@ import time
 
 import recommendation
 import price_target
+import stock_price
+import database_actions
 
 
 logging.basicConfig(
@@ -33,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 class StockData:
     def __init__(self):
-        self._symbols = self.get_list_of_symbols()
+        self._symbols = self.download_list_of_symbols()
         #self.data = self.download_stock_price_data()
         pass
 
@@ -83,6 +85,83 @@ class StockData:
 
         return results
 
+    def download_stock_prices(self, db_actions: database_actions.DatabaseActions, symbols: List[str]) -> List[price_target.PriceTarget]:
+        """
+        Retrieves the price targets from the yfinance API.
+
+        Args:
+            None
+        Returns:
+            List[price_target.PriceTarget]: A list of Recommendation objects containing the analyst price targets data
+        """
+        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+        now = datetime.datetime.now()
+
+        symbol_maxes = stock_price.StockPrice().get_max_date_by_symbol(db_actions)
+        final_list = []
+
+        for symbol in symbols:
+            if symbol in symbol_maxes:
+                max_existing_date = symbol_maxes[symbol]
+            else:
+                max_existing_date = yesterday - datetime.timedelta(days=99*365)
+
+            start_date = max_existing_date + datetime.timedelta(days=1)
+
+            worked, prices = self.download_price_of_one_symbol(symbol, yesterday, now, start_date)
+            if worked:
+                final_list.extend(prices)
+
+        return final_list
+
+    def download_price_of_one_symbol(self, symbol: str, yesterday: datetime.date, now: datetime.datetime, start_date: datetime.date) -> Tuple[bool, stock_price.StockPrice]:
+
+        """
+        Retrieves the stock price data for a given stock symbol from the yfinance API.
+
+        Args:
+            symbol (str): The stock symbol for which to retrieve the price data.
+            yesterday (datetime.date): The current date minus one day.
+            now (datetime.datetime): The current datetime.
+            start_date (datetime.date): The date from which to begin retrieving price data.
+
+        Returns:
+            Tuple[bool, List[stock_price.StockPrice]]: A tuple containing a boolean indicating success and a list of StockPrice objects with the price data.
+        """
+        iteration = 0
+        prices = []
+        worked = False
+        data_df = None
+        while iteration < 3:
+            logger.info(f'Getting price for {symbol}')
+            try:
+                data_df = yfinance.Ticker(symbol).history(start=start_date.isoformat(), end=yesterday.isoformat()).reset_index()
+                break
+            except Exception as e:
+                logger.error(f'Error getting price for {symbol}: {e}')
+                iteration += 1
+                time.sleep(1)
+        if data_df is None or len(data_df) == 0:
+            logger.warning(f'!!!WARNING: {symbol} price never retrieved')
+        else:
+            for i in data_df.index:
+                row = data_df.loc[i]
+                price = stock_price.StockPrice(id=symbol + '_' + row['Date'].isoformat(),
+                                               symbol=symbol,
+                                               date=row['Date'],
+                                               open_price=float(row['Open']),
+                                               high_price=float(row['High']),
+                                               low_price=float(row['Low']),
+                                               close_price=float(row['Close']),
+                                               volume=int(row['Volume']),
+                                               dividends=float(row['Dividends']),
+                                               stock_splits=float(row['Stock Splits']),
+                                               inserted_at=now)
+                prices.append(price)
+            worked = True
+
+        return worked, prices
+
     def download_recommendations(self) -> List[recommendation.Recommendation]:
         """
         Retrieves the recommendations counts from the yfinance API. The format
@@ -105,6 +184,19 @@ class StockData:
 
     def download_recommedation_of_one_symbol(self, symbol: str, today: datetime.date) -> Tuple[bool, recommendation.Recommendation]:
         
+        """
+        Retrieves the recommendation counts for a given stock symbol from the yfinance API.
+
+        The function attempts to get the recommendation counts for the specified symbol up to three times. If successful, it returns a Recommendation object with the strongBuy, buy, hold, sell, and strongSell counts. Otherwise, it logs warnings if the data could not be retrieved.
+
+        Args:
+            symbol (str): The stock symbol for which to retrieve the recommendation counts.
+            today (datetime.date): The current date.
+
+        Returns:
+            Tuple[bool, recommendation.Recommendation]: A tuple containing a boolean indicating success and a Recommendation object with the recommendation counts.
+
+        """
         iteration = 0
         rec = None
         worked = False
@@ -159,6 +251,9 @@ class StockData:
         """
         Retrieves the price target for a given stock symbol from the yfinance API.
 
+        The function attempts to get the price target for the specified symbol up to three times. If successful, it returns a PriceTarget object with
+        the current, low, high, mean, and median price targets. Otherwise, it logs warnings if the data could not be retrieved.
+
         Args:
             symbol (str): The stock symbol for which to retrieve the price target.
             today (datetime.date): The current date.
@@ -166,8 +261,6 @@ class StockData:
         Returns:
             Tuple[bool, price_target.PriceTarget]: A tuple containing a boolean indicating success and a PriceTarget object with the price target data.
 
-        The function attempts to get the price target for the specified symbol up to three times. If successful, it returns a PriceTarget object with
-        the current, low, high, mean, and median price targets. Otherwise, it logs warnings if the data could not be retrieved.
         """
         iteration = 0
         target = None
@@ -205,7 +298,7 @@ class StockData:
 
         return worked, target
 
-    def get_list_of_symbols(self) -> List[str]:
+    def download_list_of_symbols(self) -> List[str]:
         """
         Retrieves a list of currently listed US stock symbols
 
@@ -237,6 +330,9 @@ class StockData:
         symbols = all_symbols[1:]
         logger.info(f'Retrieved {len(symbols)} symbols')
         return symbols
+
+    def get_list_of_symbols(self) -> List[str]:
+        return self._symbols
 
     def get_stock_price_data(self) -> dict:
         return self.data
