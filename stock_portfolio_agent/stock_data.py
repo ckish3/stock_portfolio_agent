@@ -94,7 +94,7 @@ class StockData:
         Returns:
             List[price_target.PriceTarget]: A list of Recommendation objects containing the analyst price targets data
         """
-        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+        today = datetime.date.today()
         now = datetime.datetime.now()
 
         symbol_maxes = stock_price.StockPrice().get_max_date_by_symbol(db_actions)
@@ -104,24 +104,24 @@ class StockData:
             if symbol in symbol_maxes:
                 max_existing_date = symbol_maxes[symbol]
             else:
-                max_existing_date = yesterday - datetime.timedelta(days=99*365)
+                max_existing_date = today - datetime.timedelta(days=99*365)
 
             start_date = max_existing_date + datetime.timedelta(days=1)
 
-            worked, prices = self.download_price_of_one_symbol(symbol, yesterday, now, start_date)
+            worked, prices = self.download_price_of_one_symbol(symbol, today, now, start_date)
             if worked:
                 final_list.extend(prices)
 
         return final_list
 
-    def download_price_of_one_symbol(self, symbol: str, yesterday: datetime.date, now: datetime.datetime, start_date: datetime.date) -> Tuple[bool, stock_price.StockPrice]:
+    def download_price_of_one_symbol(self, symbol: str, today: datetime.date, now: datetime.datetime, start_date: datetime.date) -> Tuple[bool, List[stock_price.StockPrice]]:
 
         """
         Retrieves the stock price data for a given stock symbol from the yfinance API.
 
         Args:
             symbol (str): The stock symbol for which to retrieve the price data.
-            yesterday (datetime.date): The current date minus one day.
+            today (datetime.date): The current date.
             now (datetime.datetime): The current datetime.
             start_date (datetime.date): The date from which to begin retrieving price data.
 
@@ -135,7 +135,7 @@ class StockData:
         while iteration < 3:
             logger.info(f'Getting price for {symbol}')
             try:
-                data_df = yfinance.Ticker(symbol).history(start=start_date.isoformat(), end=yesterday.isoformat()).reset_index()
+                data_df = yfinance.Ticker(symbol).history(start=start_date.isoformat(), end=today.isoformat()).reset_index()
                 break
             except Exception as e:
                 logger.error(f'Error getting price for {symbol}: {e}')
