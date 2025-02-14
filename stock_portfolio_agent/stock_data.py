@@ -106,7 +106,7 @@ class StockData:
             else:
                 max_existing_date = today - datetime.timedelta(days=99*365)
 
-            start_date = max_existing_date + datetime.timedelta(days=1)
+            start_date = max_existing_date + datetime.timedelta(days=2)
 
             worked, prices = self.download_price_of_one_symbol(symbol, today, now, start_date)
             if worked:
